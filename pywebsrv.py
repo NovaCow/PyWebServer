@@ -41,7 +41,7 @@ class FileHandler:
     DEFAULT_CONFIG = (
         "port:8080\nport-https:8443\nhttp:1"
         "\nhttps:0\ndirectory:{cwd}\nhost:localhost"
-        "allow-ip:1\nallow-localhost:1"
+        "allow-all:1\nallow-localhost:1"
     )
 
     def __init__(self, base_dir=None):
@@ -122,6 +122,9 @@ class FileHandler:
                         or option == "allow-localhost"
                         or option == "disable-autocertgen"
                     ):
+                        print(
+                            f"option: {option}, val: {value}, ret: {bool(int(value))}"
+                        )
                         return bool(int(value))
                     return value
         return None
@@ -177,10 +180,8 @@ class RequestParser:
             host = host.split(":", 1)[0]
         host = host.lstrip()
         if (
-            host == "localhost"
-            or host == "127.0.0.1"
-            and bool(self.file_handler.read_config("allow-localhost")) is True
-        ):
+            host == "localhost" or host == "127.0.0.1"
+        ) and self.file_handler.read_config("allow-localhost"):
             return True
         if host not in self.hosts and self.all_allowed is False:
             return False
