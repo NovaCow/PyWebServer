@@ -95,6 +95,7 @@ class FileHandler:
             "https",
             "port-https",
             "allow-all",
+            "allow-nohost",
             "allow-localhost",
             "disable-autocertgen",
         ]
@@ -121,10 +122,8 @@ class FileHandler:
                         or option == "allow-all"
                         or option == "allow-localhost"
                         or option == "disable-autocertgen"
+                        or option == "allow-nohost"
                     ):
-                        print(
-                            f"option: {option}, val: {value}, ret: {bool(int(value))}"
-                        )
                         return bool(int(value))
                     return value
         return None
@@ -240,6 +239,22 @@ class WebServer:
                 self.https_socket, server_side=True
             )
 
+        self.http_404_html = (
+            "<html><head><title>HTTP 404 - PyWebServer</title></head>"
+            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.1</p>"
+            "</center></body></html>"
+        )
+        self.http_403_html = (
+            "<html><head><title>HTTP 403 - PyWebServer</title></head>"
+            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.1</p>"
+            "</center></body></html>"
+        )
+        self.http_405_html = (
+            "<html><head><title>HTTP 405 - PyWebServer</title></head>"
+            "<body><center><h1>HTTP 404 - Method not allowed</h1><p>Running PyWebServer/1.1</p>"
+            "</center></body></html>"
+        )
+
         self.running = True
 
     def start(self, http, https):
@@ -334,15 +349,15 @@ class WebServer:
         if not all([method, path, version]) or not self.parser.is_method_allowed(
             method
         ):
-            return self.build_response(405, "Method Not Allowed")
+            return self.build_response(405, self.http_405_html)
 
         file_content = self.file_handler.read_file(path)
 
         if file_content == 403:
             print("WARN: Directory traversal attack prevented.")  # look ma, security!!
-            return self.build_response(403, "Forbidden")
+            return self.build_response(403, self.http_403_html)
         if file_content == 404:
-            return self.build_response(404, "Not Found")
+            return self.build_response(404, self.http_404_html)
         if file_content == 500:
             return self.build_response(
                 500,
@@ -381,7 +396,7 @@ class WebServer:
 
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.0\r\n"
+            f"Server: PyWebServer/1.1\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"  # connection close bcuz im lazy
@@ -406,7 +421,7 @@ class WebServer:
 
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.0\r\n"
+            f"Server: PyWebServer/1.1\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
