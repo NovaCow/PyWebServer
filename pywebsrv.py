@@ -45,8 +45,8 @@ class FileHandler:
     )
 
     def __init__(self, base_dir=None):
-        self.base_dir = base_dir or os.path.join(os.getcwd(), "html")
         self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
+        self.base_dir = self.read_config("directory")
 
     def check_first_run(self):
         if not os.path.isfile(self.config_path):
@@ -125,6 +125,11 @@ class FileHandler:
                         or option == "allow-nohost"
                     ):
                         return bool(int(value))
+                    if option == "directory":
+                        if value == "<Enter directory here>":
+                            print("FATAL: You haven't set up PyWebServer! Please edit pywebsrv.conf!")
+                            exit(1)
+                        return value
                     return value
         return None
 
@@ -150,11 +155,11 @@ class RequestParser:
         """Parses the HTTP request line."""
         try:
             method, path, version = line.split(" ")
-            if path.endswith("/"):
-                path += "index.html"
-            return method, path, version
         except ValueError:
             return None, None, None
+        if path.endswith("/"):
+            path += "index.html"
+        return method, path, version
 
     def is_method_allowed(self, method):
         """
@@ -251,7 +256,7 @@ class WebServer:
         )
         self.http_405_html = (
             "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 404 - Method not allowed</h1><p>Running PyWebServer/1.1</p>"
+            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.1</p>"
             "</center></body></html>"
         )
 
