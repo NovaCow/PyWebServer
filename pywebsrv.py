@@ -169,9 +169,11 @@ class RequestParser:
         Should (for now) only be GET as I haven't implemented the logic for PUT
         """
         allowed_methods = ["GET"]
-        if os.path.isfile(self.allowed_methods_file):
-            with open(self.allowed_methods_file, "r") as f:
-                allowed_methods = [line.strip() for line in f]
+        # While the logic for PUT, DELETE, etc. is not added, we shouldn't
+        # allow for it to attempt it.
+        # if os.path.isfile(self.allowed_methods_file):
+        #     with open(self.allowed_methods_file, "r") as f:
+        #         allowed_methods = [line.strip() for line in f]
         return method in allowed_methods
 
     def host_parser(self, host):
@@ -311,7 +313,7 @@ class WebServer:
 
     def handle_connection(self, conn, addr):
         try:
-            data = conn.recv(512)  # why? well internet and tutiorials
+            data = conn.recv(512)
             request = data.decode(errors="ignore")
             response = self.handle_request(request, addr)
 
