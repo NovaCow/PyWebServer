@@ -1,5 +1,8 @@
 # PyWebServer
 
+# PyWebServer is undergoing major security updates!
+# Please use commit [7ac160f625](https://git.novacow.ch/Nova/PyWebServer/src/commit/7ac160f6259e637c2337a672e56f105f4cdd2d2a) as the source for now!!
+
 ## GitHub
 The upstream of this project is on my own [Gitea instance](https://git.novacow.ch/Nova/PyWebServer/).  
 Because of that I'll mostly reply to issues and PRs there, you can submit issues and PRs on GitHub, but it might take longer before I read it.
