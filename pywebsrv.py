@@ -122,9 +122,6 @@ class FileHandler:
                         or option == "allow-localhost"
                         or option == "disable-autocertgen"
                     ):
-                        print(
-                            f"option: {option}, val: {value}, ret: {bool(int(value))}"
-                        )
                         return bool(int(value))
                     return value
         return None
@@ -134,10 +131,7 @@ class FileHandler:
         Generate some self-signed certificates using AutoCertGen
         """
         autocert = AutoCertGen()
-        pk = autocert.generate_private_key()
-        sub, iss = autocert.generate_issuer_and_subject()
-        cert = autocert.build_cert(pk, iss, sub)
-        autocert.write_cert(pk, cert)
+        autocert.gen_cert()
 
 
 class RequestParser:
