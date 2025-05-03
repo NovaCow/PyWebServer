@@ -1,5 +1,9 @@
 # PyWebServer
 
+## GitHub
+The upstream of this project is on my own [Gitea instance](https://git.novacow.ch/Nova/PyWebServer/).  
+Because of that I'll mostly reply to issues and PRs there, you can submit issues and PRs on GitHub, but it might take longer before I read it.
+
 ## Installing
 Installing and running PyWebServer is very simple.  
 Assuming you're running Linux:
