@@ -1,4 +1,17 @@
 """
+License:
+     PyWebServer
+     Copyright (C) 2025 Nova
+
+     This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+     This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
+     You should have received a copy of the GNU General Public License along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    Contact:
+        E-mail: nova@novacow.ch
+
 This is PyWebServer, an ultra minimalist webserver, meant to still have
 a lot standard webserver features. A comprehensive list is below:
 Features:
@@ -28,7 +41,7 @@ import signal
 import sys
 
 try:
-    from autocertgen import AutoCertGen
+    from certgen import AutoCertGen
 except ImportError:
     print(
         "WARN: You need the AutoCertGen plugin! Please install it from\n"
@@ -46,7 +59,6 @@ class FileHandler:
 
     def __init__(self, base_dir=None):
         self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
-        self.base_dir = self.read_config("directory")
 
     def check_first_run(self):
         if not os.path.isfile(self.config_path):
@@ -57,6 +69,9 @@ class FileHandler:
     def on_first_run(self):
         with open(self.config_path, "w") as f:
             f.write(self.DEFAULT_CONFIG.format(cwd=os.getcwd()))
+
+    def didnt_confirm(self):
+        os.remove(self.config_path)
 
     def read_file(self, file_path):
         if "../" in file_path:
@@ -127,7 +142,9 @@ class FileHandler:
                         return bool(int(value))
                     if option == "directory":
                         if value == "<Enter directory here>":
-                            print("FATAL: You haven't set up PyWebServer! Please edit pywebsrv.conf!")
+                            print(
+                                "FATAL: You haven't set up PyWebServer! Please edit pywebsrv.conf!"
+                            )
                             exit(1)
                         return value
                     return value
@@ -138,10 +155,7 @@ class FileHandler:
         Generate some self-signed certificates using AutoCertGen
         """
         autocert = AutoCertGen()
-        pk = autocert.generate_private_key()
-        sub, iss = autocert.generate_issuer_and_subject()
-        cert = autocert.build_cert(pk, iss, sub)
-        autocert.write_cert(pk, cert)
+        autocert.gen_cert()
 
 
 class RequestParser:
@@ -311,12 +325,12 @@ class WebServer:
 
     def handle_connection(self, conn, addr):
         try:
-            data = conn.recv(512)  # why? well internet and tutiorials
+            data = conn.recv(512)
             request = data.decode(errors="ignore")
             response = self.handle_request(request, addr)
 
             if isinstance(response, str):
-                response = response.encode()  # if we send text this shouldn't explode
+                response = response.encode()
 
             conn.sendall(response)
         except Exception as e:
@@ -368,9 +382,10 @@ class WebServer:
                 500,
                 "PyWebServer has encountered a fatal error and cannot serve "
                 "your request. Contact the owner with this error: FATAL_FILE_RO_ACCESS",
-            )  # The user did no fucky-wucky, but the server fucking exploded.
+            )  # When there was an issue with reading we throw this.
 
-        # (try to) detect binary files (eg, mp3) and serve them correctly
+        # A really crude implementation of binary files. Later in 2.0 I'll actually
+        # make this useful.
         if path.endswith((".mp3", ".png", ".jpg", ".jpeg", ".gif")):
             return self.build_binary_response(200, file_content, path)
 
@@ -404,12 +419,18 @@ class WebServer:
             f"Server: PyWebServer/1.1\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
-            f"Connection: close\r\n\r\n"  # connection close bcuz im lazy
+            f"Connection: close\r\n\r\n"
+            # Connection close is done because it is way easier to implement.
+            # It's not like this program will see production use anyway.
         )
         return headers.encode() + binary_data
 
     @staticmethod
     def build_response(status_code, body):
+        """
+        For textfiles we'll not have to guess MIME-types, though the other function
+        build_binary_response will be merged in here anyway.
+        """
         messages = {
             200: "OK",
             304: "Not Modified",  # TODO KEKL
@@ -434,8 +455,7 @@ class WebServer:
         return headers + body
 
     def shutdown(self, signum, frame):
-        print(f"\nRecieved signal {signum}")
-        print("\nShutting down server...")
+        print("\nRecieved signal to exit!\nShutting down server...")
         self.running = False
         self.http_socket.close()
         self.https_socket.close()
@@ -444,7 +464,27 @@ class WebServer:
 
 def main():
     file_handler = FileHandler()
-    file_handler.check_first_run()
+    first_run = file_handler.check_first_run()
+    if first_run is True:
+        print(
+            "*******************************************************************\n"
+            "*                          WARNING!!                              *\n"
+            "*******************************************************************\n"
+            "You have installed PyWebServer for the first time!\n"
+            "PyWebServer comes with test keys and certificates!\n"
+            "THESE SHOULD UNDER NO CIRCUMSTANCE BE USED IN ANYTHING BUT LOCAL TESTING!!!\n"
+            "IF YOU DON'T FOLLOW THESE INSTRUCTIONS YOU ARE PUTTING ALL YOUR TRAFFIC IN DANGER!!!\n"
+            "PLEASE REMOVE THEM ASAP IF YOU'RE USING THIS IN ANY FORM OF PRODUCTION!!!\n"
+            "*******************************************************************\n"
+            "*                          WARNING!!                              *\n"
+            "*******************************************************************\n"
+        )
+        confirm = input("Do you understand? [y/N] ")
+        if confirm != "y":
+            print("User did not confirm, exiting!")
+            file_handler.didnt_confirm()
+            exit(1)
+    file_handler.base_dir = file_handler.read_config("directory")
     http_port = file_handler.read_config("port") or 8080
     https_port = file_handler.read_config("port-https") or 8443
     http_enabled = file_handler.read_config("http") or True
