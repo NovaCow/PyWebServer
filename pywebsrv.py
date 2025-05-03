@@ -59,6 +59,7 @@ class FileHandler:
 
     def __init__(self, base_dir=None):
         self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
+        self.base_dir = self.read_config("directory")
 
     def check_first_run(self):
         if not os.path.isfile(self.config_path):
@@ -262,17 +263,17 @@ class WebServer:
 
         self.http_404_html = (
             "<html><head><title>HTTP 404 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.1</p>"
+            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.1+u2</p>"
             "</center></body></html>"
         )
         self.http_403_html = (
             "<html><head><title>HTTP 403 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.1</p>"
+            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.1+u2</p>"
             "</center></body></html>"
         )
         self.http_405_html = (
             "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.1</p>"
+            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.1+u2</p>"
             "</center></body></html>"
         )
 
@@ -418,7 +419,7 @@ class WebServer:
 
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.1\r\n"
+            f"Server: PyWebServer/1.1+u2\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -449,7 +450,7 @@ class WebServer:
 
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.1\r\n"
+            f"Server: PyWebServer/1.1+u2\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
@@ -466,26 +467,7 @@ class WebServer:
 
 def main():
     file_handler = FileHandler()
-    first_run = file_handler.check_first_run()
-    if first_run is True:
-        print(
-            "*******************************************************************\n"
-            "*                          WARNING!!                              *\n"
-            "*******************************************************************\n"
-            "You have installed PyWebServer for the first time!\n"
-            "PyWebServer comes with test keys and certificates!\n"
-            "THESE SHOULD UNDER NO CIRCUMSTANCE BE USED IN ANYTHING BUT LOCAL TESTING!!!\n"
-            "IF YOU DON'T FOLLOW THESE INSTRUCTIONS YOU ARE PUTTING ALL YOUR TRAFFIC IN DANGER!!!\n"
-            "PLEASE REMOVE THEM ASAP IF YOU'RE USING THIS IN ANY FORM OF PRODUCTION!!!\n"
-            "*******************************************************************\n"
-            "*                          WARNING!!                              *\n"
-            "*******************************************************************\n"
-        )
-        confirm = input("Do you understand? [y/N] ")
-        if confirm != "y":
-            print("User did not confirm, exiting!")
-            file_handler.didnt_confirm()
-            exit(1)
+    file_handler.check_first_run()
     file_handler.base_dir = file_handler.read_config("directory")
     http_port = file_handler.read_config("port") or 8080
     https_port = file_handler.read_config("port-https") or 8443

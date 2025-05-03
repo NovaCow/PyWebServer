@@ -9,7 +9,7 @@ class AutoCertGen:
     def __init__(self):
         pass
 
-    def gen_cert():
+    def gen_cert(self):
         # Generate private key
         private_key = rsa.generate_private_key(
             public_exponent=65537,
@@ -55,7 +55,7 @@ class AutoCertGen:
             )
 
         # Save certificate
-        with open("certificate.pem", "wb") as f:
+        with open("cert.pem", "wb") as f:
             f.write(certificate.public_bytes(serialization.Encoding.PEM))
 
         print("Self-signed certificate and private key generated for HTTPS server!")
