@@ -28,7 +28,7 @@ import signal
 import sys
 
 try:
-    from autocertgen import AutoCertGen
+    from certgen import AutoCertGen
 except ImportError:
     print(
         "WARN: You need the AutoCertGen plugin! Please install it from\n"
