@@ -271,17 +271,17 @@ class WebServer:
 
         self.http_404_html = (
             "<html><head><title>HTTP 404 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.1+u2</p>"
+            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.2</p>"
             "</center></body></html>"
         )
         self.http_403_html = (
             "<html><head><title>HTTP 403 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.1+u2</p>"
+            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.2</p>"
             "</center></body></html>"
         )
         self.http_405_html = (
             "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.1+u2</p>"
+            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.2</p>"
             "</center></body></html>"
         )
 
@@ -424,7 +424,7 @@ class WebServer:
         status_message = messages.get(status_code)
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.1+u2\r\n"
+            f"Server: PyWebServer/1.2\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -458,7 +458,7 @@ class WebServer:
 
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.1+u2\r\n"
+            f"Server: PyWebServer/1.2\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
