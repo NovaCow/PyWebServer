@@ -34,6 +34,7 @@ Library aswell as a standalone script:
 """
 
 import os
+import mimetypes
 import threading
 import ssl
 import socket
@@ -71,23 +72,21 @@ class FileHandler:
         with open(self.config_path, "w") as f:
             f.write(self.DEFAULT_CONFIG.format(cwd=os.getcwd()))
 
-    def didnt_confirm(self):
-        os.remove(self.config_path)
-
     def read_file(self, file_path):
         if "../" in file_path:
-            return 403
+            return 403, None
 
         full_path = os.path.join(self.base_dir, file_path.lstrip("/"))
         if not os.path.isfile(full_path):
-            return 404
+            return 404, None
 
         try:
+            mimetype = mimetypes.guess_type(full_path)
             with open(full_path, "rb") as f:
-                return f.read()
+                return f.read(), mimetype
         except Exception as e:
             print(f"Error reading file {full_path}: {e}")
-            return 500
+            return 500, None
 
     def write_file(self, file_path, data):
         if "../" in file_path:
@@ -147,6 +146,8 @@ class FileHandler:
                                 "FATAL: You haven't set up PyWebServer! Please edit pywebsrv.conf!"
                             )
                             exit(1)
+                        if value.endswith("/"):
+                            value = value.rstrip("/")
                         return value
                     return value
         return None
@@ -200,6 +201,7 @@ class RequestParser:
         if ":" in host:
             host = host.split(":", 1)[0]
         host = host.lstrip()
+        host = host.rstrip()
         if (
             host == "localhost" or host == "127.0.0.1"
         ) and self.file_handler.read_config("allow-localhost"):
@@ -224,6 +226,12 @@ class WebServer:
 
         # me when no certificate and key file
         if not os.path.exists(self.cert_file) or not os.path.exists(self.key_file):
+            if not os.path.exists(self.cert_file) and not os.path.exists(self.key_file):
+                pass
+            elif not os.path.exists(self.cert_file):
+                os.remove(self.key_file)
+            elif not os.path.exists(self.key_file):
+                os.remove(self.cert_file)
             print("WARN: No HTTPS certificate was found!")
             if self.file_handler.read_config("disable-autocertgen") is True:
                 print("WARN: AutoCertGen is disabled, ignoring...")
@@ -291,9 +299,9 @@ class WebServer:
         if http is True:
             http_thread.start()
 
-        print(
-            f"Server running:\n - HTTP on port {self.http_port}\n - HTTPS on port {self.https_port}"
-        )
+        # print(
+        #     f"Server running:\n - HTTP on port {self.http_port}\n - HTTPS on port {self.https_port}"
+        # )
 
         http_thread.join()
         https_thread.join()
@@ -344,6 +352,8 @@ class WebServer:
     def handle_request(self, data, addr):
         if not data:
             return self.build_response(400, "Bad Request")  # user did fucky-wucky
+        if len(data) > 8192:
+            return self.build_response(413, "Request too long")
 
         request_line = data.splitlines()[0]
 
@@ -368,12 +378,18 @@ class WebServer:
 
         method, path, version = self.parser.parse_request_line(request_line)
 
+        # Figure out a better way to reload config
+        if path == "/?pywebsrv_reload_conf=1":
+            print("Got reload command! Reloading configuration...")
+            self.file_handler.base_dir = self.file_handler.read_config("directory")
+            return self.build_response(204, "")
+
         if not all([method, path, version]) or not self.parser.is_method_allowed(
             method
         ):
             return self.build_response(405, self.http_405_html)
 
-        file_content = self.file_handler.read_file(path)
+        file_content, mimetype = self.file_handler.read_file(path)
 
         if file_content == 403:
             print("WARN: Directory traversal attack prevented.")  # look ma, security!!
@@ -389,13 +405,14 @@ class WebServer:
 
         # A really crude implementation of binary files. Later in 2.0 I'll actually
         # make this useful.
-        if path.endswith((".mp3", ".png", ".jpg", ".jpeg", ".gif")):
-            return self.build_binary_response(200, file_content, path)
+        mimetype = mimetype[0]
+        if "text/" not in mimetype:
+            return self.build_binary_response(200, file_content, path, mimetype)
 
         return self.build_response(200, file_content)
 
     @staticmethod
-    def build_binary_response(status_code, binary_data, filename):
+    def build_binary_response(status_code, binary_data, filename, content_type):
         """Handles binary files like MP3s."""
         messages = {
             200: "OK",
@@ -405,18 +422,6 @@ class WebServer:
             500: "Internal Server Error",
         }
         status_message = messages.get(status_code)
-
-        # In the spirit of keeping stuff small, we'll just guess and see.
-        content_type = "application/octet-stream"
-        if filename.endswith(".mp3"):
-            content_type = "audio/mpeg"
-        elif filename.endswith(".png"):
-            content_type = "image/png"
-        elif filename.endswith(".jpg") or filename.endswith(".jpeg"):
-            content_type = "image/jpeg"
-        elif filename.endswith(".gif"):
-            content_type = "image/gif"
-
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
             f"Server: PyWebServer/1.1+u2\r\n"
@@ -436,12 +441,15 @@ class WebServer:
         """
         messages = {
             200: "OK",
+            204: "No Content",
             304: "Not Modified",  # TODO KEKL
             400: "Bad Request",
             403: "Forbidden",
             404: "Not Found",
             405: "Method Not Allowed",
+            413: "Payload Too Large",
             500: "Internal Server Error",
+            635: "Go Away",
         }
         status_message = messages.get(status_code)
 
