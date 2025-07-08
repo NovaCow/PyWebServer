@@ -31,6 +31,8 @@ Simple to understand and mod codebase.
 All GNU GPL-3-or-above license. (Do with it what you want.)
 Library aswell as a standalone script:
     You can easily get access to other parts of the script if you need it.
+
+TODO: actually put normal comments in
 """
 
 import os
@@ -55,7 +57,7 @@ class FileHandler:
     DEFAULT_CONFIG = (
         "port:8080\nport-https:8443\nhttp:1"
         "\nhttps:0\ndirectory:{cwd}\nhost:localhost"
-        "allow-all:1\nallow-localhost:1"
+        "\nallow-localhost:1"
     )
 
     def __init__(self, base_dir=None):
@@ -109,10 +111,10 @@ class FileHandler:
             "http",
             "https",
             "port-https",
-            "allow-all",
-            "allow-nohost",
             "allow-localhost",
             "disable-autocertgen",
+            "key-file",
+            "cert-file"
         ]
         if option not in valid_options:
             return None
@@ -127,25 +129,20 @@ class FileHandler:
                 key = key.lower()
                 if key == option:
                     if option == "host":
-                        seperated_values = value.split(",", 0)
+                        seperated_values = value.split(",", -1)
                         return [value.lower() for value in seperated_values]
                     if option == "port" or option == "port-https":
                         return int(value)
                     if (
                         option == "http"
                         or option == "https"
-                        or option == "allow-all"
                         or option == "allow-localhost"
                         or option == "disable-autocertgen"
-                        or option == "allow-nohost"
                     ):
                         return bool(int(value))
                     if option == "directory":
                         if value == "<Enter directory here>":
-                            print(
-                                "FATAL: You haven't set up PyWebServer! Please edit pywebsrv.conf!"
-                            )
-                            exit(1)
+                            return os.path.join(os.getcwd(), "html")
                         if value.endswith("/"):
                             value = value.rstrip("/")
                         return value
@@ -162,10 +159,8 @@ class FileHandler:
 
 class RequestParser:
     def __init__(self):
-        self.allowed_methods_file = "allowedmethods.conf"
         self.file_handler = FileHandler()
         self.hosts = self.file_handler.read_config("host")
-        self.all_allowed = self.file_handler.read_config("allow-all")
 
     def parse_request_line(self, line):
         """Parses the HTTP request line."""
@@ -187,9 +182,8 @@ class RequestParser:
         allowed_methods = ["GET"]
         # While the logic for PUT, DELETE, etc. is not added, we shouldn't
         # allow for it to attempt it.
-        # if os.path.isfile(self.allowed_methods_file):
-        #     with open(self.allowed_methods_file, "r") as f:
-        #         allowed_methods = [line.strip() for line in f]
+        # Prepatched for new update.
+        # allowed_methods = self.file_handler.read_config("allowed-methods")
         return method in allowed_methods
 
     def host_parser(self, host):
@@ -197,7 +191,7 @@ class RequestParser:
         Parses the host and makes sure it's allowed in
         Mfw im in an ugly code writing contest and my opponent is nova while writing a side project
         """
-        host = str(host)
+        host = f"{host}"
         if ":" in host:
             host = host.split(":", 1)[0]
         host = host.lstrip()
@@ -206,9 +200,9 @@ class RequestParser:
             host == "localhost" or host == "127.0.0.1"
         ) and self.file_handler.read_config("allow-localhost"):
             return True
-        if host not in self.hosts and self.all_allowed is False:
+        if host not in self.hosts:
             return False
-        elif host not in self.hosts and self.all_allowed is True:
+        else:
             return True
 
 
@@ -228,6 +222,7 @@ class WebServer:
         if not os.path.exists(self.cert_file) or not os.path.exists(self.key_file):
             if not os.path.exists(self.cert_file) and not os.path.exists(self.key_file):
                 pass
+            # maybe warn users we purge their key/cert files? xdd
             elif not os.path.exists(self.cert_file):
                 os.remove(self.key_file)
             elif not os.path.exists(self.key_file):
@@ -243,11 +238,8 @@ class WebServer:
                 else:
                     self.skip_ssl = True
 
-        # TODO: change this to something like oh no you fucked up, go fix idiot
         self.no_host_req_response = (
-            "Connecting via this host is disallowed\r\n"
-            "You may also be using a very old browser!\r\n"
-            "Ask the owner of this website to set allow-all to 1!"
+            "This host cannot be reached without sending a `Host` header."
         )
 
         # ipv6 when????/??//?????//?
@@ -271,17 +263,17 @@ class WebServer:
 
         self.http_404_html = (
             "<html><head><title>HTTP 404 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.2</p>"
+            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.2.1</p>"
             "</center></body></html>"
         )
         self.http_403_html = (
             "<html><head><title>HTTP 403 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.2</p>"
+            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.2.1</p>"
             "</center></body></html>"
         )
         self.http_405_html = (
             "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.2</p>"
+            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.2.1</p>"
             "</center></body></html>"
         )
 
@@ -295,13 +287,12 @@ class WebServer:
         https_thread = threading.Thread(target=self.start_https, daemon=True)
 
         if https is True:
+            if self.skip_ssl is True:
+                print("WARN: You have enabled HTTPS without SSL!!")
+                yn = input("Is this intended behaviour? [y/N] ")
             https_thread.start()
         if http is True:
             http_thread.start()
-
-        # print(
-        #     f"Server running:\n - HTTP on port {self.http_port}\n - HTTPS on port {self.https_port}"
-        # )
 
         http_thread.join()
         https_thread.join()
@@ -350,6 +341,7 @@ class WebServer:
             conn.close()
 
     def handle_request(self, data, addr):
+        print(f"len data: {len(data)}")
         if not data:
             return self.build_response(400, "Bad Request")  # user did fucky-wucky
         if len(data) > 8192:
@@ -368,13 +360,9 @@ class WebServer:
                     )
                 break
         else:
-            if (
-                self.file_handler.read_config("allow-nohost") is True
-            ):  # no host is stupid
-                pass
             return self.build_response(
-                403, self.no_host_req_response.encode()
-            )  # the default (i hope to god)
+                400, self.no_host_req_response.encode()
+            )
 
         method, path, version = self.parser.parse_request_line(request_line)
 
@@ -382,9 +370,12 @@ class WebServer:
         if path == "/?pywebsrv_reload_conf=1":
             print("Got reload command! Reloading configuration...")
             self.file_handler.base_dir = self.file_handler.read_config("directory")
-            return self.build_response(204, "")
+            return self.build_response(302, "")
 
-        if not all([method, path, version]) or not self.parser.is_method_allowed(
+        if not all([method, path, version]):
+            return self.build_response(400, "Bad Request")
+
+        if not self.parser.is_method_allowed(
             method
         ):
             return self.build_response(405, self.http_405_html)
@@ -407,12 +398,12 @@ class WebServer:
         # make this useful.
         mimetype = mimetype[0]
         if "text/" not in mimetype:
-            return self.build_binary_response(200, file_content, path, mimetype)
+            return self.build_binary_response(200, file_content, mimetype)
 
         return self.build_response(200, file_content)
 
     @staticmethod
-    def build_binary_response(status_code, binary_data, filename, content_type):
+    def build_binary_response(status_code, binary_data, content_type):
         """Handles binary files like MP3s."""
         messages = {
             200: "OK",
@@ -424,7 +415,7 @@ class WebServer:
         status_message = messages.get(status_code)
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.2\r\n"
+            f"Server: PyWebServer/1.2.1\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -433,8 +424,7 @@ class WebServer:
         )
         return headers.encode() + binary_data
 
-    @staticmethod
-    def build_response(status_code, body):
+    def build_response(self, status_code, body):
         """
         For textfiles we'll not have to guess MIME-types, though the other function
         build_binary_response will be merged in here anyway.
@@ -442,6 +432,7 @@ class WebServer:
         messages = {
             200: "OK",
             204: "No Content",
+            302: "Found",
             304: "Not Modified",  # TODO KEKL
             400: "Bad Request",
             403: "Forbidden",
@@ -456,12 +447,38 @@ class WebServer:
         if isinstance(body, str):
             body = body.encode()
 
+        # TODO: dont encode yet, and i encode. awesome comments here.
+        # Don't encode yet, if 302 status code we have to include location.
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.2\r\n"
+            f"Server: PyWebServer/1.2.1\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
+
+        if status_code == 302:
+            # 302 currently only happens when the reload is triggered.
+            # Why not 307, Moved Permanently? Because browsers will cache the
+            # response and not send the reload command.
+            host = self.file_handler.read_config("host")[0]
+            port = self.file_handler.read_config("port-https") or self.file_handler.read_config("port")
+            if port != 80 and port != 443:
+                if port == 8443:
+                    host = f"https://{host}:{port}/"
+                else:
+                    host = f"http://{host}:{port}/"
+            else:
+                if port == 443:
+                    host = f"https://{host}/"
+                else:
+                    host = f"http://{host}/"
+            headers = (
+                f"HTTP/1.1 {status_code} {status_message}\r\n"
+                f"Location: {host}\r\n"
+                f"Server: PyWebServer/1.2.1\r\n"
+                f"Content-Length: {len(body)}\r\n"
+                f"Connection: close\r\n\r\n"
+            ).encode()
 
         return headers + body
 
