@@ -16,14 +16,7 @@ Windows users, make sure you have installed Git, from there:
 git clone https://git.novacow.ch/Nova/PyWebServer.git
 Set-Location .\PyWebServer\
 ```
-From here, you should check from what directory you want to store the content in.  
-In this example, we'll use `./html/` (or `.\html\` for Windows users) from the perspective of the PyWebServer root dir.  
-To create this directory, do this:
-```bash
-mkdir ./html/
-```
-(This applies to both Windows and Linux)  
-Then, open `pywebsrv.conf` in your favorite text editor and change the `directory` key to the full path to the `./html/` you just created.  
+Then, open `pywebsrv.conf` in your favorite text editor and change the `directory` key to the full path where your files are stored.  
 After that, put your files in and run this:
 Linux:
 ```bash
@@ -38,17 +31,15 @@ py \path\to\pywebsrv.py
 ```
 
 ## SSL Support
-Currently PyWebServer warns about AutoCertGen not being installed. AutoCertGen currently is very unstable at the moment, and therefore is not available for download.  
 PyWebServer supports SSL/TLS for authentication via HTTPS. In the config file, you should enable the HTTPS port. After that you need to create the certificate.  
 Currently PyWebServer looks for the `cert.pem` and the `key.pem` files in the root directory of the installation.  
-PyWebServer comes with a test certificate, this certificate is self-signed, but doesn't have a matching issuer and subject. This is to prevent people from using it in production, even if they have disabled warnings of self-signed certificates.  
 
 ## HTTP support
 Currently PyWebServer only supports HTTP/1.1, this is very unlikely to change, as most of the modern web today still uses HTTP/1.1.  
 For methods PyWebServer only supports `GET`, this is being reworked though, check issue [#3](https://git.novacow.ch/Nova/PyWebServer/issues/3) for progress.
 
 ## Files support
-Unlike other small web servers, PyWebServer has full support for binary files being sent and received (once that logic is put in) over HTTP.
+Unlike other small web servers, PyWebServer has full support for binary files being sent and received (once that logic is put in) over HTTP(S).
 
 ## Support
 PyWebServer will follow a standard support scheme.
