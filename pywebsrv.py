@@ -59,9 +59,11 @@ except ImportError:
 
 class FileHandler:
     CONFIG_FILE = "pywebsrv.conf"
+    new_conf = "new_conf.conf"
 
     def __init__(self, base_dir=None):
         self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
+        self.new_conf = os.path.join(os.getcwd(), self.new_conf)
         self.base_dir = self.read_config("directory")
         self.cached_conf = None
         if not os.path.exists(self.config_path):
@@ -166,7 +168,7 @@ class FileHandler:
         Reads the configuration file and returns a dict
         """
         if self.cached_conf is None:
-            with open(self.config_path, "r", encoding="utf-8") as fh:
+            with open(self.new_conf, "r", encoding="utf-8") as fh:
                 text = fh.read()
 
             blocks = re.findall(
@@ -174,6 +176,7 @@ class FileHandler:
             )
             parsed = {}
             host_list = []
+            print(f"Blocks: {blocks}")
             for tag, hostname, body in blocks:
                 section = hostname if hostname else "globals"
                 if hostname:
@@ -181,7 +184,7 @@ class FileHandler:
                 kv = {}
                 for line in body.splitlines():
                     line = line.strip()
-                    if not line or ":" not in line or line.starswith("#"):
+                    if not line or ":" not in line or line.startswith("#"):
                         continue
 
                     key, rest = line.split(":", 1)
@@ -193,18 +196,18 @@ class FileHandler:
                         kv[key] = [item.strip() for item in rest.split(",")]
                     else:
                         kv[key] = rest
-                parsed[section] = kv
-                parsed["globals"]["hosts"] = host_list
-                self.cached_conf = parsed
-            else:
-                parsed = self.cached_conf
-            if option == "host":
-                try:
-                    return host_list
-                except Exception:
-                    return parsed["globals"]["hosts"]
-            section = parsed.get(host or "globals", {})
-            return section.get(option)
+            parsed[section] = kv
+            parsed["globals"]["hosts"] = host_list
+            self.cached_conf = parsed
+        else:
+            parsed = self.cached_conf
+        if option == "host":
+            try:
+                return host_list
+            except Exception:
+                return parsed["globals"]["hosts"]
+        section = parsed.get(host or "globals", {})
+        return section.get(option)
 
     def autocert(self):
         """
@@ -218,7 +221,8 @@ class FileHandler:
 class RequestParser:
     def __init__(self):
         self.file_handler = FileHandler()
-        self.hosts = self.file_handler.read_config("host")
+        self.hosts = self.file_handler.read_new_config("host")
+        print(f"Hosts: {self.hosts}")
 
     def parse_request_line(self, line):
         """Parses the HTTP request line."""
@@ -230,8 +234,9 @@ class RequestParser:
             path += "index.html"
         return method, path, version
 
-    def ua_blocker(self, ua):
+    def ua_blocker(self, ua, host=None):
         """Parses and matches UA to block"""
+        del host
         match, literal = self.file_handler.read_config("block-ua")
         if ua in literal:
             return False
@@ -284,8 +289,8 @@ class WebServer:
     def __init__(
         self, http_port=8080, https_port=8443, cert_file="cert.pem", key_file="key.pem"
     ):
-        self.http_port = http_port
-        self.https_port = https_port
+        self.http_port = int(http_port)
+        self.https_port = int(https_port)
         self.cert_file = cert_file
         self.key_file = key_file
         self.file_handler = FileHandler()
@@ -583,12 +588,13 @@ class WebServer:
 
 def main():
     file_handler = FileHandler()
-    file_handler.check_first_run()
     file_handler.base_dir = file_handler.read_config("directory")
-    http_port = file_handler.read_config("port") or 8080
-    https_port = file_handler.read_config("port-https") or 8443
-    http_enabled = file_handler.read_config("http") or True
-    https_enabled = file_handler.read_config("https") or False
+    http_port = file_handler.read_new_config("port") or 8080
+    https_port = file_handler.read_new_config("port-https") or 8443
+    http_enabled = bool(file_handler.read_new_config("http")) or True
+    print(http_enabled)
+    https_enabled = bool(file_handler.read_new_config("https")) or False
+    print(https_enabled)
     server = WebServer(http_port=http_port, https_port=https_port)
     server.start(http_enabled, https_enabled)
 
