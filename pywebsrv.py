@@ -12,6 +12,8 @@ License:
     Contact:
         E-mail: nova@novacow.ch
 
+NOTE: Once 2.0 is released, PyWebServer will become the Amethyst Web Server
+
 This is PyWebServer, an ultra minimalist webserver, meant to still have
 a lot standard webserver features. A comprehensive list is below:
 Features:
@@ -40,39 +42,35 @@ import mimetypes
 import threading
 import ssl
 import socket
+import re
 import signal
 import sys
 
 try:
     from certgen import AutoCertGen
 except ImportError:
-    print(
-        "WARN: You need the AutoCertGen plugin! Please install it from\n"
-        "https://git.novacow.ch/Nova/AutoCertGen/"
-    )
+    # just do nothing, it's not working anyway.
+    # print(
+    #     "WARN: You need the AutoCertGen plugin! Please install it from\n"
+    #     "https://git.novacow.ch/Nova/AutoCertGen/"
+    # )
+    pass
 
 
 class FileHandler:
     CONFIG_FILE = "pywebsrv.conf"
-    DEFAULT_CONFIG = (
-        "port:8080\nport-https:8443\nhttp:1"
-        "\nhttps:0\ndirectory:{cwd}\nhost:localhost"
-        "\nallow-localhost:1"
-    )
 
     def __init__(self, base_dir=None):
         self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
         self.base_dir = self.read_config("directory")
-
-    def check_first_run(self):
-        if not os.path.isfile(self.config_path):
-            self.on_first_run()
-            return True
-        return False
-
-    def on_first_run(self):
-        with open(self.config_path, "w") as f:
-            f.write(self.DEFAULT_CONFIG.format(cwd=os.getcwd()))
+        self.cached_conf = None
+        if not os.path.exists(self.config_path):
+            print(
+                "The pywebsrv.conf file needs to be in the same directory "
+                "as pywebsrv.py! Get the default config file from:\n"
+                "https://git.novacow.ch/Nova/PyWebServer/raw/branch/main/pywebsrv.conf"
+            )
+            exit(1)
 
     def read_file(self, file_path):
         if "../" in file_path:
@@ -163,9 +161,55 @@ class FileHandler:
                     return value
         return None
 
+    def read_new_config(self, option, host=None):
+        """
+        Reads the configuration file and returns a dict
+        """
+        if self.cached_conf is None:
+            with open(self.config_path, "r", encoding="utf-8") as fh:
+                text = fh.read()
+
+            blocks = re.findall(
+                r'^(host\s+(\S+)|globals)\s*\{([^}]*)\}', text, re.MULTILINE
+            )
+            parsed = {}
+            host_list = []
+            for tag, hostname, body in blocks:
+                section = hostname if hostname else "globals"
+                if hostname:
+                    host_list.append(hostname)
+                kv = {}
+                for line in body.splitlines():
+                    line = line.strip()
+                    if not line or ":" not in line or line.starswith("#"):
+                        continue
+
+                    key, rest = line.split(":", 1)
+                    key = key.strip()
+                    rest = rest.strip()
+
+                    # Split comma-separated values (e.g. GET,PUT)
+                    if "," in rest:
+                        kv[key] = [item.strip() for item in rest.split(",")]
+                    else:
+                        kv[key] = rest
+                parsed[section] = kv
+                parsed["globals"]["hosts"] = host_list
+                self.cached_conf = parsed
+            else:
+                parsed = self.cached_conf
+            if option == "host":
+                try:
+                    return host_list
+                except Exception:
+                    return parsed["globals"]["hosts"]
+            section = parsed.get(host or "globals", {})
+            return section.get(option)
+
     def autocert(self):
         """
         Generate some self-signed certificates using AutoCertGen
+        TODO: doesn't work, need to fix. probably add `./` to $PATH
         """
         autocert = AutoCertGen()
         autocert.gen_cert()
@@ -228,6 +272,12 @@ class RequestParser:
             return False
         else:
             return True
+
+#
+# class ProxyServer:
+#     def __init__(
+#         self,
+#     ):
 
 
 class WebServer:
@@ -455,7 +505,7 @@ class WebServer:
         status_message = messages.get(status_code)
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.2.1\r\n"
+            f"Server: PyWebServer/1.4\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -492,7 +542,7 @@ class WebServer:
         # Don't encode yet, if 302 status code we have to include location.
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.2.1\r\n"
+            f"Server: PyWebServer/1.4\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
