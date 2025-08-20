@@ -1,7 +1,16 @@
 # PyWebServer
 
+## Current state
+Currently I'm in the middle of bringing major improvements to PyWebServer, like a significantly better config
+automatic HTTPS certificate generation using Let's Encrypt, HTTP `PUT`, `POST` and `DELETE` support,
+HTTP2 support and auto-indexing.  
+This all will be part of major release 2, version 2.0. These improvements will partially make their way into 1.x
+versions, from 1.4 onwards, mostly as testing ground and compatibility with 2.0 reasons. Most will probably be dead code
+until 2.0 properly comes out. Until then, parts of the code may be pretty cluttered. I'll probably enable you to test some feautres
+like the new config, but code quality is currently not a main priority.
+
 ## GitHub
-The upstream of this project is on my own [Gitea instance](https://git.novacow.ch/Nova/PyWebServer/).  
+The host of this project is on my own [Gitea instance](https://git.novacow.ch/Nova/PyWebServer/).  
 Because of that I'll mostly reply to issues and PRs there, you can submit issues and PRs on GitHub, but it might take longer before I read it.
 
 ## Installing
