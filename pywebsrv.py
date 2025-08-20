@@ -56,6 +56,8 @@ except ImportError:
     # )
     pass
 
+AMETHYST_BUILD_NUMBER = "0001"
+AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 class FileHandler:
     CONFIG_FILE = "pywebsrv.conf"
@@ -265,6 +267,7 @@ class RequestParser:
         Mfw im in an ugly code writing contest and my opponent is nova while writing a side project
         """
         host = f"{host}"
+        print(f"hosts: {self.hosts}, host: {host}")
         if ":" in host:
             host = host.split(":", 1)[0]
         host = host.lstrip()
@@ -342,17 +345,17 @@ class WebServer:
 
         self.http_404_html = (
             "<html><head><title>HTTP 404 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/1.2.1</p>"
+            f"<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
         self.http_403_html = (
             "<html><head><title>HTTP 403 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/1.2.1</p>"
+            f"<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
         self.http_405_html = (
             "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            "<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/1.2.1</p>"
+            f"<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
 
@@ -510,7 +513,7 @@ class WebServer:
         status_message = messages.get(status_code)
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.4\r\n"
+            f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -547,7 +550,7 @@ class WebServer:
         # Don't encode yet, if 302 status code we have to include location.
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/1.4\r\n"
+            f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
@@ -571,7 +574,7 @@ class WebServer:
             headers = (
                 f"HTTP/1.1 {status_code} {status_message}\r\n"
                 f"Location: {host}\r\n"
-                f"Server: PyWebServer/1.2.1\r\n"
+                f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
                 f"Content-Length: {len(body)}\r\n"
                 f"Connection: close\r\n\r\n"
             ).encode()
@@ -587,6 +590,17 @@ class WebServer:
 
 
 def main():
+    print(
+        "WARNING!!\n"
+        f"This is Amethyst alpha build {AMETHYST_BUILD_NUMBER}\n"
+        "Since this is an alpha version of Amethyst, most features aren't working!\n"
+        "These builds are also very verbose and will spit out a lot on the terminal. "
+        "As you can imagine, this is for debugging purposes.\n"
+        "THERE IS ABSOLUTELY NO SUPPORT FOR THESE VERSIONS!\n"
+        "DO NOT USE THEM IN PRODUCTION SETTINGS!\n"
+        f"Please report any bugs on {AMETHYST_REPO}\n"
+    )
+    input("Press <Enter> to continue. ")
     file_handler = FileHandler()
     file_handler.base_dir = file_handler.read_config("directory")
     http_port = file_handler.read_new_config("port") or 8080
