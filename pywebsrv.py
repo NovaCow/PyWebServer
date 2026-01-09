@@ -160,7 +160,7 @@ class FileHandler:
                         return value
                     return value
         if option == "block-ua":
-            return []
+            return [], []
         return None
 
     def read_new_config(self, option, host=None):
