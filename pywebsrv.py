@@ -159,6 +159,8 @@ class FileHandler:
                             value = value.rstrip("/")
                         return value
                     return value
+        if option == "block-ua":
+            return []
         return None
 
     def read_new_config(self, option, host=None):
