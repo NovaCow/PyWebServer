@@ -583,7 +583,7 @@ class WebServer:
 
 def main():
     file_handler = FileHandler()
-    file_handler.check_first_run()
+    # file_handler.check_first_run()
     file_handler.base_dir = file_handler.read_config("directory")
     http_port = file_handler.read_config("port") or 8080
     https_port = file_handler.read_config("port-https") or 8443
