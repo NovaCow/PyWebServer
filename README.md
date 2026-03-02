@@ -1,5 +1,7 @@
 # PyWebServer
 
+# PyWebServer is pretty much abandoned, I am working on a continuation called Amethyst which will be PyWebServer 2.0 in vein. It is being worked on in the branch 2.0.
+
 ## Current state
 Currently I'm in the middle of bringing major improvements to PyWebServer, like a significantly better config
 automatic HTTPS certificate generation using Let's Encrypt, HTTP `PUT`, `POST` and `DELETE` support,
