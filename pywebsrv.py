@@ -35,6 +35,8 @@ Library aswell as a standalone script:
     You can easily get access to other parts of the script if you need it.
 
 TODO: actually put normal comments in
+
+TODO: INPROG: add typing to all code, new code will feature it by default.
 """
 
 import os
@@ -42,7 +44,8 @@ import mimetypes
 import threading
 import ssl
 import socket
-import re
+
+# import re
 import signal
 import sys
 
@@ -56,7 +59,7 @@ except ImportError:
     # )
     pass
 
-AMETHYST_BUILD_NUMBER = "0039"
+AMETHYST_BUILD_NUMBER = "0045"
 AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 
@@ -253,15 +256,19 @@ class RequestParser:
         try:
             method, path, version = line.split(" ")
         except ValueError:
-            return None, None, None
-        if path.endswith("/"):
+            return "DELETE", "/this/is/a/bogus/request", "HTTP/1.0"
+        if path.endswith("/") and "." not in path:
             path += "index.html"
         return method, path, version
 
-    def ua_blocker(self, ua, host=None):
+    def ua_is_allowed(self, ua, host=None):
         """Parses and matches UA to block"""
+        # return True
         del host
-        match, literal = self.file_handler.read_config("block-ua")
+        _list = self.file_handler.read_config("block-ua")
+        if _list is None:
+            return True
+        match, literal = self.file_handler.parse_match_blocks(_list)
         if ua in literal:
             return False
         for _ua in match:
@@ -400,8 +407,6 @@ class WebServer:
 
         http_thread = threading.Thread(target=self.start_http, daemon=True)
         https_thread = threading.Thread(target=self.start_https, daemon=True)
-        # ipv6http_thread = threading.Thread(target=self.start_http_ipv6, daemon=True)
-        # ipv6https_thread = threading.Thread(target=self.start_https_ipv6, daemon=True)
 
         if https is True:
             if self.skip_ssl is True:
@@ -410,15 +415,11 @@ class WebServer:
                 if yn.lower() == "n":
                     exit(1)
             https_thread.start()
-            # ipv6https_thread.start()
         if http is True:
-            # ipv6http_thread.start()
             http_thread.start()
 
         http_thread.join()
         https_thread.join()
-        # ipv6http_thread.join()
-        # ipv6https_thread.join()
 
     def start_http(self):
         self.http_socket.listen(5)
@@ -429,32 +430,6 @@ class WebServer:
                 self.handle_connection(conn, addr)
             except Exception as e:
                 print(f"HTTP error: {e}")
-            except OSError:
-                break
-
-    def start_http_ipv6(self):
-        self.ipv6http_socket.listen(5)
-        print(f"IPv6 HTTP server listening on port {self.http_port}...")
-        while self.running:
-            try:
-                conn, addr = self.ipv6http_socket.accept()
-                self.handle_connection(conn, addr)
-            except Exception as e:
-                print(f"HTTP error: {e}")
-            except OSError:
-                break
-
-    def start_https_ipv6(self):
-        self.ipv6https_socket.listen(5)
-        print(f"IPv6 HTTPS server listening on port {self.https_port}...")
-        while self.running:
-            try:
-                conn, addr = self.ipv6https_socket.accept()
-                self.handle_connection(conn, addr)
-            except Exception as e:
-                print(
-                    f"HTTPS error: {e}"
-                )  # be ready for ssl errors if you use a self-sign!!
             except OSError:
                 break
 
@@ -491,6 +466,13 @@ class WebServer:
             conn.sendall(response)
         except Exception as e:
             print(f"Error handling connection: {e}")
+            response = self.build_response(
+                500,
+                "Amethyst is currently unable to serve your request. Below is debug info.\r\n"
+                f"Error: {e}; Version: amethyst-b{AMETHYST_BUILD_NUMBER}\r\n"
+                "You cannot do anything at this time, the server owner has made a misconfiguration or there is a bug in the program",
+            )
+            conn.sendall(response)
         finally:
             conn.close()
 
@@ -514,7 +496,7 @@ class WebServer:
         for line in data.splitlines():
             if "User-Agent" in line:
                 ua = line.split(":", 1)[1].strip()
-                allowed = self.parser.ua_blocker(ua)
+                allowed = self.parser.ua_is_allowed(ua)
                 if not allowed:
                     return self.build_response(
                         403, "This UA has been blocked by the owner of this site."
@@ -540,6 +522,8 @@ class WebServer:
 
         if ":" in host:
             host2 = host.rsplit(":", 1)[0]
+        else:
+            host2 = host
 
         directory = (
             self.file_handler.read_new_config("directory", host2)
@@ -556,12 +540,10 @@ class WebServer:
         if file_content == 500:
             return self.build_response(
                 500,
-                "PyWebServer has encountered a fatal error and cannot serve "
+                "Amethyst has encountered a fatal error and cannot serve "
                 "your request. Contact the owner with this error: FATAL_FILE_RO_ACCESS",
             )  # When there was an issue with reading we throw this.
 
-        # A really crude implementation of binary files. Later in 2.0 I'll actually
-        # make this useful.
         mimetype = mimetype[0]
         if mimetype is None:
             # We have to assume it's binary.
@@ -592,7 +574,6 @@ class WebServer:
             f"Connection: close\r\n\r\n"
             # Connection close is done because it is way easier to implement.
             # It's not like this program will see production use anyway.
-            # Tbh when i'll implement HTTP2
         )
         return headers.encode() + binary_data
 
