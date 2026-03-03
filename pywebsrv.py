@@ -59,7 +59,7 @@ except ImportError:
     # )
     pass
 
-AMETHYST_BUILD_NUMBER = "0045"
+AMETHYST_BUILD_NUMBER = "0046"
 AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 
@@ -263,18 +263,18 @@ class RequestParser:
 
     def ua_is_allowed(self, ua, host=None):
         """Parses and matches UA to block"""
-        # return True
-        del host
-        _list = self.file_handler.read_config("block-ua")
-        if _list is None:
-            return True
-        match, literal = self.file_handler.parse_match_blocks(_list)
-        if ua in literal:
-            return False
-        for _ua in match:
-            if _ua.lower() in ua.lower():
-                return False
         return True
+        # del host
+        # _list = self.file_handler.read_config("block-ua")
+        # if _list is None:
+        #     return True
+        # match, literal = self.file_handler.parse_match_blocks(_list)
+        # if ua in literal:
+        #     return False
+        # for _ua in match:
+        #     if _ua.lower() in ua.lower():
+        #         return False
+        # return True
 
     def is_method_allowed(self, method):
         """
