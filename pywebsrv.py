@@ -50,33 +50,35 @@ import signal
 import sys
 
 try:
+    if not os.getcwd() in sys.path:
+        sys.path.append(f"{os.getcwd()}")
     from certgen import AutoCertGen
 except ImportError:
     # just do nothing, it's not working anyway.
-    # print(
-    #     "WARN: You need the AutoCertGen plugin! Please install it from\n"
-    #     "https://git.novacow.ch/Nova/AutoCertGen/"
-    # )
-    pass
+    print(
+        "WARN: You need the AutoCertGen plugin! Please install it from\n"
+        "https://git.novacow.ch/Nova/AutoCertGen/"
+    )
+    # pass
 
-AMETHYST_BUILD_NUMBER = "0046"
+AMETHYST_BUILD_NUMBER = "0052"
 AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 
 class ConfigParser:
     def __init__(self, text):
-        self.data = {"hosts": {}, "globals": {}}
+        self.data: dict = {"hosts": {}, "globals": {}}
         self._parse(text)
 
     def _parse(self, text):
-        lines = [
+        lines: list = [
             line.strip()
             for line in text.splitlines()
             if line.strip() and not line.strip().startswith("#")
         ]
 
-        current_block = None
-        current_name = None
+        current_block: tuple | None = None
+        current_name: str | None = None
 
         for line in lines:
             if line.startswith("host ") and line.endswith("{"):
@@ -96,8 +98,8 @@ class ConfigParser:
 
             if ":" in line and current_block:
                 key, value = line.split(":", 1)
-                key = key.strip()
-                value = value.strip()
+                key: str = key.strip()
+                value: str = value.strip()
 
                 if "," in value:
                     value = [v.strip() for v in value.split(",")]
@@ -139,6 +141,8 @@ class FileHandler:
     def read_file(self, file_path, directory=None):
         if "../" in file_path or "%" in file_path:
             return 403, None
+        if file_path == "api.py":
+            return 404, None
 
         if directory is not None:
             full_path = os.path.join(directory, file_path.lstrip("/"))
@@ -239,8 +243,6 @@ class FileHandler:
         Generate some self-signed certificates using AutoCertGen
         TODO: doesn't work, need to fix. probably add `./` to $PATH
         """
-        if not os.getcwd() in sys.path:
-            sys.path.append(f"{os.getcwd()}")
         autocert = AutoCertGen()
         autocert.gen_cert()
 
@@ -251,14 +253,17 @@ class RequestParser:
         self.hosts = self.file_handler.read_new_config("hosts")
         print(f"Hosts: {self.hosts}")
 
-    def parse_request_line(self, line):
+    def parse_request_line(self, line, host):
         """Parses the HTTP request line."""
         try:
             method, path, version = line.split(" ")
         except ValueError:
             return "DELETE", "/this/is/a/bogus/request", "HTTP/1.0"
-        if path.endswith("/") and "." not in path:
-            path += "index.html"
+        if path.endswith("/") or ("." not in path):
+            if not path.endswith("/"):
+                path += "/"
+            index = self.file_handler.read_new_config("index", host) or "index.html"
+            path += f"{index}"
         return method, path, version
 
     def ua_is_allowed(self, ua, host=None):
@@ -276,18 +281,20 @@ class RequestParser:
         #         return False
         # return True
 
-    def is_method_allowed(self, method):
+    def is_method_allowed(self, method, host=None):
         """
         Checks if the HTTP method is allowed.
         Reads allowed methods from a configuration file.
         Falls back to allowing only 'GET' if the file does not exist.
         Should (for now) only be GET as I haven't implemented the logic for PUT
         """
-        allowed_methods = ["GET"]
+        # allowed_methods = ["GET"]
         # While the logic for PUT, DELETE, etc. is not added, we shouldn't
         # allow for it to attempt it.
         # Prepatched for new update.
-        # allowed_methods = self.file_handler.read_config("allowed-methods")
+        allowed_methods = self.file_handler.read_new_config("allowed-methods", host)
+        if allowed_methods is None:
+            allowed_methods = ["GET"]
         return method in allowed_methods
 
     def host_parser(self, host):
@@ -311,13 +318,6 @@ class RequestParser:
             return False
         else:
             return True
-
-
-#
-# class ProxyServer:
-#     def __init__(
-#         self,
-#     ):
 
 
 class WebServer:
@@ -355,17 +355,6 @@ class WebServer:
         self.no_host_req_response = (
             "This host cannot be reached without sending a `Host` header."
         )
-
-        # TODO: enable experimental ipv6 support in config
-
-        # ipv6 when????/??//?????//?
-        # self.http_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.http_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # self.http_socket.bind(("0.0.0.0", self.http_port))
-        #
-        # self.https_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.https_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # self.https_socket.bind(("0.0.0.0", self.https_port))
 
         self.http_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.http_socket.bind(("::", self.http_port))
@@ -505,7 +494,12 @@ class WebServer:
         else:
             return self.build_response(400, "You cannot connect without a User-Agent.")
 
-        method, path, version = self.parser.parse_request_line(request_line)
+        if ":" in host:
+            host2 = host.rsplit(":", 1)[0]
+        else:
+            host2 = host
+
+        method, path, version = self.parser.parse_request_line(request_line, host2)
 
         if not all([method, path, version]):
             return self.build_response(400, "Bad Request")
@@ -515,20 +509,23 @@ class WebServer:
             print("Got reload command! Reloading configuration...")
             self.file_handler = FileHandler()
             self.parser = RequestParser()
-            return self.build_response(302, "")
+            return self.build_response(302, "", host=host2)
 
         if not self.parser.is_method_allowed(method):
             return self.build_response(405, self.http_405_html)
-
-        if ":" in host:
-            host2 = host.rsplit(":", 1)[0]
-        else:
-            host2 = host
 
         directory = (
             self.file_handler.read_new_config("directory", host2)
             or self.file_handler.base_dir
         )
+
+        if self.file_handler.read_new_config("apimode", host2) is True:
+            if not os.path.join(os.getcwd(), directory) in sys.path:
+                sys.path.append(f"{os.path.join(os.getcwd(), directory)}")
+            import api
+
+            apiclass = api.API()
+            return apiclass.on_request(data)
 
         file_content, mimetype = self.file_handler.read_file(path, directory)
 
@@ -577,7 +574,8 @@ class WebServer:
         )
         return headers.encode() + binary_data
 
-    def build_response(self, status_code, body):
+    @staticmethod
+    def build_response(status_code, body, host=None):
         """
         For textfiles we'll not have to guess MIME-types, though the other function
         build_binary_response will be merged in here anyway.
@@ -593,7 +591,7 @@ class WebServer:
             405: "Method Not Allowed",
             413: "Payload Too Large",
             500: "Internal Server Error",
-            635: "Go Away",
+            621: "fuck off! :3",
         }
         status_message = messages.get(status_code)
 
@@ -613,20 +611,10 @@ class WebServer:
             # 302 currently only happens when the reload is triggered.
             # Why not 307, Moved Permanently? Because browsers will cache the
             # response and not send the reload command.
-            host = self.file_handler.read_config("host")[0]
-            port = self.file_handler.read_config(
-                "port-https"
-            ) or self.file_handler.read_config("port")
-            if port != 80 and port != 443:
-                if port == 8443:
-                    host = f"https://{host}:{port}/"
-                else:
-                    host = f"http://{host}:{port}/"
-            else:
-                if port == 443:
-                    host = f"https://{host}/"
-                else:
-                    host = f"http://{host}/"
+            # if port == 443:
+            #     host = f"https://{host}/"
+            # else:
+            #     host = f"http://{host}/"
             headers = (
                 f"HTTP/1.1 {status_code} {status_message}\r\n"
                 f"Location: {host}\r\n"
@@ -635,6 +623,16 @@ class WebServer:
                 f"Connection: close\r\n\r\n"
             ).encode()
 
+        if status_code == 621:
+            headers = (
+                f"HTTP/1.1 {status_code} {status_message}\r\n"
+                "Server: PyWebServer/amethyst-build-0621\r\n"
+                "Content-Length: 30\r\n"
+                f"Connection: close\r\n\r\n"
+            )
+            body = "https://e621.net/posts/6155664"
+
+        print(f"{headers + body}")
         return headers + body
 
     def shutdown(self, signum, frame):
@@ -660,7 +658,7 @@ def main():
     file_handler = FileHandler()
     file_handler.base_dir = file_handler.read_config("directory")
     http_port = file_handler.read_new_config("port") or 8080
-    https_port = file_handler.read_new_config("port-https") or 8443
+    https_port = file_handler.read_new_config("https-port") or 8443
     http_enabled = bool(file_handler.read_new_config("http")) or True
     print(http_enabled)
     https_enabled = bool(file_handler.read_new_config("https")) or False
