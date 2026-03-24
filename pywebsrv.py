@@ -61,7 +61,7 @@ except ImportError:
     )
     # pass
 
-AMETHYST_BUILD_NUMBER = "0052"
+AMETHYST_BUILD_NUMBER = "0053"
 AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 
@@ -373,18 +373,18 @@ class WebServer:
             )
 
         self.http_404_html = (
-            "<html><head><title>HTTP 404 - PyWebServer</title></head>"
-            f"<body><center><h1>HTTP 404 - Not Found!</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
+            "<html><head><title>HTTP 404 - Amethyst</title></head>"
+            f"<body><center><h1>HTTP 404 - Not Found!</h1><p>Running Amethyst/build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
         self.http_403_html = (
-            "<html><head><title>HTTP 403 - PyWebServer</title></head>"
-            f"<body><center><h1>HTTP 403 - Forbidden</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
+            "<html><head><title>HTTP 403 - Amethyst</title></head>"
+            f"<body><center><h1>HTTP 403 - Forbidden</h1><p>Running Amethyst/build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
         self.http_405_html = (
-            "<html><head><title>HTTP 405 - PyWebServer</title></head>"
-            f"<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}</p>"
+            "<html><head><title>HTTP 405 - Amethyst</title></head>"
+            f"<body><center><h1>HTTP 405 - Method not allowed</h1><p>Running Amethyst/build-{AMETHYST_BUILD_NUMBER}</p>"
             "</center></body></html>"
         )
 
@@ -565,7 +565,7 @@ class WebServer:
         status_message = messages.get(status_code)
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
+            f"Server: Amethyst/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
             f"Content-Type: {content_type}\r\n"
             f"Content-Length: {len(binary_data)}\r\n"
             f"Connection: close\r\n\r\n"
@@ -602,7 +602,7 @@ class WebServer:
         # Don't encode yet, if 302 status code we have to include location.
         headers = (
             f"HTTP/1.1 {status_code} {status_message}\r\n"
-            f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
+            f"Server: Amethyst/build-{AMETHYST_BUILD_NUMBER}\r\n"
             f"Content-Length: {len(body)}\r\n"
             f"Connection: close\r\n\r\n"
         ).encode()
@@ -618,7 +618,7 @@ class WebServer:
             headers = (
                 f"HTTP/1.1 {status_code} {status_message}\r\n"
                 f"Location: {host}\r\n"
-                f"Server: PyWebServer/amethyst-build-{AMETHYST_BUILD_NUMBER}\r\n"
+                f"Server: Amethyst/build-{AMETHYST_BUILD_NUMBER}\r\n"
                 f"Content-Length: {len(body)}\r\n"
                 f"Connection: close\r\n\r\n"
             ).encode()
@@ -626,7 +626,7 @@ class WebServer:
         if status_code == 621:
             headers = (
                 f"HTTP/1.1 {status_code} {status_message}\r\n"
-                "Server: PyWebServer/amethyst-build-0621\r\n"
+                "Server: Amethyst/build-0621\r\n"
                 "Content-Length: 30\r\n"
                 f"Connection: close\r\n\r\n"
             )
