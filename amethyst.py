@@ -52,7 +52,7 @@ import sys
 try:
     if not os.getcwd() in sys.path:
         sys.path.append(f"{os.getcwd()}")
-    from certgen import AutoCertGen
+    from .certgen import AutoCertGen
 except ImportError:
     # just do nothing, it's not working anyway.
     print(
@@ -61,7 +61,7 @@ except ImportError:
     )
     # pass
 
-AMETHYST_BUILD_NUMBER = "0053"
+AMETHYST_BUILD_NUMBER = "b0.2.0-0072"
 AMETHYST_REPO = "https://git.novacow.ch/Nova/PyWebServer/"
 
 
@@ -119,21 +119,19 @@ class ConfigParser:
 
 
 class FileHandler:
-    CONFIG_FILE = "pywebsrv.conf"
-    new_conf = "new_conf.conf"
-
     def __init__(self, base_dir=None):
         # this is a fucking clusterfuck.
-        self.config_path = os.path.join(os.getcwd(), self.CONFIG_FILE)
-        self.new_conf = os.path.join(os.getcwd(), self.new_conf)
-        self.base_dir = self.read_config("directory")
-        with open(self.new_conf, "r") as f:
+        self.config_file = "amethyst.conf"
+        self.config_path = os.path.join(os.getcwd(), self.config_file)
+        with open(self.config_path, "r") as f:
             self.cfg = ConfigParser(f.read())
+        self.base_dir = self.read_config("directory")
         if not os.path.exists(self.config_path):
+            # uuh???
             print(
-                "The pywebsrv.conf file needs to be in the same directory "
-                "as pywebsrv.py! Get the default config file from:\n"
-                "https://git.novacow.ch/Nova/PyWebServer/raw/branch/main/pywebsrv.conf"
+                "The amethyst.conf file needs to be in the same directory "
+                "as amethyst.py! Get the default config file from:\n"
+                "https://git.novacow.ch/Nova/PyWebServer/raw/branch/2.0/amethyst.conf"
             )
             exit(1)
         # TODO: fix this please!!
@@ -167,72 +165,7 @@ class FileHandler:
             f.write(data)
         return 0
 
-    def read_config(self, option):
-        """
-        clean code, whats that????
-        TODO: docs
-        """
-        option = option.lower()
-        valid_options = [
-            "port",
-            "directory",
-            "host",
-            "http",
-            "https",
-            "port-https",
-            "allow-localhost",
-            "disable-autocertgen",
-            "key-file",
-            "cert-file",
-            "block-ua",
-        ]
-        if option not in valid_options:
-            return None
-        with open(self.config_path, "r") as f:
-            for line in f:
-                if line.startswith("#"):
-                    continue
-                try:
-                    key, value = line.strip().split(":", 1)
-                except ValueError:
-                    return None
-                key = key.lower()
-                if key == option:
-                    if option == "host":
-                        seperated_values = value.split(",", -1)
-                        return [value.lower() for value in seperated_values]
-                    if option == "block-ua":
-                        seperated_values = value.split(",", -1)
-                        host_to_match = []
-                        literal_blocks = []
-                        for val in seperated_values:
-                            if val.startswith("match(") and val.endswith(")"):
-                                idx = val.index("(")
-                                idx2 = val.index(")")
-                                ua_to_match = val[idx + 1 : idx2]
-                                host_to_match.append(ua_to_match)
-                            else:
-                                literal_blocks.append(val)
-                        return host_to_match, literal_blocks
-                    if option == "port" or option == "port-https":
-                        return int(value)
-                    if (
-                        option == "http"
-                        or option == "https"
-                        or option == "allow-localhost"
-                        or option == "disable-autocertgen"
-                    ):
-                        return bool(int(value))
-                    if option == "directory":
-                        if value == "<Enter directory here>":
-                            return os.path.join(os.getcwd(), "html")
-                        if value.endswith("/"):
-                            value = value.rstrip("/")
-                        return value
-                    return value
-        return None
-
-    def read_new_config(self, key, host_name=None):
+    def read_config(self, key, host_name=None):
         print(
             f"\n\n\nQuery!\nkey: {key}\nhost_name: {host_name}\nret: {self.cfg.query_config(key, host_name)}"
         )
@@ -250,7 +183,7 @@ class FileHandler:
 class RequestParser:
     def __init__(self):
         self.file_handler = FileHandler()
-        self.hosts = self.file_handler.read_new_config("hosts")
+        self.hosts = self.file_handler.read_config("hosts")
         print(f"Hosts: {self.hosts}")
 
     def parse_request_line(self, line, host):
@@ -258,28 +191,40 @@ class RequestParser:
         try:
             method, path, version = line.split(" ")
         except ValueError:
-            return "DELETE", "/this/is/a/bogus/request", "HTTP/1.0"
+            return None, None, None
         if path.endswith("/") or ("." not in path):
             if not path.endswith("/"):
                 path += "/"
-            index = self.file_handler.read_new_config("index", host) or "index.html"
+            index = self.file_handler.read_config("index", host) or "index.html"
             path += f"{index}"
         return method, path, version
 
+    def parse_match_blocks(self, to_parse: str | list):
+        if isinstance(to_parse, str):
+            to_parse = [to_parse]
+        match = []
+        literal = []
+        for block in to_parse:
+            if block.startswith('match("'):
+                adx = block[7:-2]
+                match.append(adx)
+            else:
+                literal.append(block)
+        return match, literal
+
     def ua_is_allowed(self, ua, host=None):
         """Parses and matches UA to block"""
-        return True
-        # del host
-        # _list = self.file_handler.read_config("block-ua")
-        # if _list is None:
-        #     return True
-        # match, literal = self.file_handler.parse_match_blocks(_list)
-        # if ua in literal:
-        #     return False
-        # for _ua in match:
-        #     if _ua.lower() in ua.lower():
-        #         return False
         # return True
+        _list = self.file_handler.read_config("block-ua", host)
+        if _list is None:
+            return True
+        match, literal = self.parse_match_blocks(_list)
+        if ua in literal:
+            return False
+        for _ua in match:
+            if _ua.lower() in ua.lower():
+                return False
+        return True
 
     def is_method_allowed(self, method, host=None):
         """
@@ -288,11 +233,7 @@ class RequestParser:
         Falls back to allowing only 'GET' if the file does not exist.
         Should (for now) only be GET as I haven't implemented the logic for PUT
         """
-        # allowed_methods = ["GET"]
-        # While the logic for PUT, DELETE, etc. is not added, we shouldn't
-        # allow for it to attempt it.
-        # Prepatched for new update.
-        allowed_methods = self.file_handler.read_new_config("allowed-methods", host)
+        allowed_methods = self.file_handler.read_config("allowed-methods", host)
         if allowed_methods is None:
             allowed_methods = ["GET"]
         return method in allowed_methods
@@ -308,16 +249,99 @@ class RequestParser:
             host = host.rsplit(":", 1)[0]
         host = host.lstrip()
         host = host.rstrip()
-        if (
-            host == "localhost" or host == "127.0.0.1" or host == "[::1]"
-        ) and self.file_handler.read_new_config("allow-localhost"):
-            return True
         if self.hosts is None:
             return True
         if host not in self.hosts:
+            if "*" in self.hosts:
+                return "catchall"
             return False
         else:
             return True
+
+
+class ProxyServer:
+    def __init__(self, fh):
+        self.file_handler: FileHandler = fh
+
+    def try_connection(
+        self, host: str, port: int, data: bytes, chost: str, force_tls: bool = None
+    ):
+        if port in [443, 8443, 9443]:
+            do_tls = True
+        else:
+            if force_tls is True:
+                do_tls = True
+            else:
+                do_tls = False
+        print(f"\n\n\nchost: {chost}\n\n\n")
+        nhost = self.file_handler.read_config("proxy", chost)
+        print(f"\n\n\nnhost: {nhost}\n\n\n")
+        if ":" in nhost:
+            nport = int(nhost.split(":")[1])
+            nhost = nhost.split(":")[0]
+        else:
+            nport = port
+        print(f"{nhost}, {nport}, {data}")
+        data = self.reset_host(nhost, nport, data)
+        try:
+            return self.tcp_send(host, port, data, do_tls)
+        except Exception:
+            if do_tls is False:
+                print("Retrying with TLS...")
+                return self.try_connection(host, port, data, chost, True)
+            else:
+                raise
+
+    @staticmethod
+    def reset_host(host: str, port: int, data: bytes):
+        data = data.decode()
+        data = data.splitlines()
+        for line in data:
+            print(line)
+            if line.startswith("Host:"):
+                if port not in [80, 443]:
+                    new_line = f"Host: {host}:{port}"
+                else:
+                    new_line = f"Host: {host}"
+                idx = data.index(line)
+                data[idx] = new_line
+                print(f"\n\n\n{idx}\n\n\n")
+            if line.startswith("Connection:"):
+                idx = data.index(line)
+                new_line = "Connection: close"
+                data[idx] = new_line
+        data = "\r\n".join(data)
+        data = f"{data}\r\n\r\n"
+        print(data)
+        return data.encode()
+        # return data
+
+    @staticmethod
+    def create_tls_context():
+        # Create a context that by default verifies with system CAs
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+
+    def tcp_send(self, host, port, data: bytes, do_tls: bool):
+        try:
+            with socket.create_connection((host, port), timeout=10) as raw_sock:
+                raw_sock.settimeout(10)
+                if do_tls:
+                    ctx = self.create_tls_context()
+                    server_hostname = host
+                    with ctx.wrap_socket(
+                        raw_sock, server_hostname=server_hostname
+                    ) as ssock:
+                        ssock.sendall(data)
+                        print("data reached")
+                        return ssock.recv(512000)
+                else:
+                    raw_sock.sendall(data)
+                    return raw_sock.recv(512000)
+        except Exception:
+            raise
 
 
 class WebServer:
@@ -328,8 +352,8 @@ class WebServer:
         self.https_port = int(https_port)
         self.file_handler = FileHandler()
         self.parser = RequestParser()
-        self.cert_file = self.file_handler.read_new_config("cert") or cert_file
-        self.key_file = self.file_handler.read_new_config("key") or key_file
+        self.cert_file = self.file_handler.read_config("cert") or cert_file
+        self.key_file = self.file_handler.read_config("key") or key_file
         self.skip_ssl = False
 
         # me when no certificate and key file
@@ -361,6 +385,8 @@ class WebServer:
 
         self.https_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.https_socket.bind(("::", self.https_port))
+
+        self.proxy_handler = ProxyServer(self.file_handler)
 
         if self.skip_ssl is False:
             # https gets the ssl treatment!! yaaaay :3
@@ -438,7 +464,7 @@ class WebServer:
 
     def handle_connection(self, conn, addr):
         try:
-            data = conn.recv(512)
+            data = conn.recv(32768)
             request = data.decode(errors="ignore")
             if not data:
                 response = self.build_response(
@@ -452,6 +478,7 @@ class WebServer:
             if isinstance(response, str):
                 response = response.encode()
 
+            print(len(response))
             conn.sendall(response)
         except Exception as e:
             print(f"Error handling connection: {e}")
@@ -474,6 +501,9 @@ class WebServer:
             if "Host" in line:
                 host = line.split(":", 1)[1].strip()
                 allowed = self.parser.host_parser(host)
+                if allowed == "catchall":
+                    host = "*"
+                    allowed = True
                 if not allowed:
                     return self.build_response(
                         403, "Connecting via this host is disallowed."
@@ -485,7 +515,7 @@ class WebServer:
         for line in data.splitlines():
             if "User-Agent" in line:
                 ua = line.split(":", 1)[1].strip()
-                allowed = self.parser.ua_is_allowed(ua)
+                allowed = self.parser.ua_is_allowed(ua, host)
                 if not allowed:
                     return self.build_response(
                         403, "This UA has been blocked by the owner of this site."
@@ -495,31 +525,47 @@ class WebServer:
             return self.build_response(400, "You cannot connect without a User-Agent.")
 
         if ":" in host:
-            host2 = host.rsplit(":", 1)[0]
+            host = host.rsplit(":", 1)[0]
         else:
-            host2 = host
+            host = host
 
-        method, path, version = self.parser.parse_request_line(request_line, host2)
+        method, path, version = self.parser.parse_request_line(request_line, host)
 
         if not all([method, path, version]):
             return self.build_response(400, "Bad Request")
+
+        if self.file_handler.read_config("proxy", host) is not None:
+            orig_host = host
+            value = self.file_handler.read_config("proxy", host)
+            if ":" in value:
+                host = value.split(":")[0]
+                port = int(value.split(":")[1])
+            else:
+                host = value
+                port = 443
+            return self.proxy_handler.try_connection(
+                host,
+                port,
+                data.encode(),
+                orig_host,
+            )
 
         # Figure out a better way to reload config
         if path == "/?pywebsrv_reload_conf=1":
             print("Got reload command! Reloading configuration...")
             self.file_handler = FileHandler()
             self.parser = RequestParser()
-            return self.build_response(302, "", host=host2)
+            return self.build_response(302, "", host=host)
 
         if not self.parser.is_method_allowed(method):
             return self.build_response(405, self.http_405_html)
 
         directory = (
-            self.file_handler.read_new_config("directory", host2)
+            self.file_handler.read_config("directory", host)
             or self.file_handler.base_dir
         )
 
-        if self.file_handler.read_new_config("apimode", host2) is True:
+        if self.file_handler.read_config("apimode", host) is True:
             if not os.path.join(os.getcwd(), directory) in sys.path:
                 sys.path.append(f"{os.path.join(os.getcwd(), directory)}")
             import api
@@ -657,11 +703,11 @@ def main():
     input("Press <Enter> to continue. ")
     file_handler = FileHandler()
     file_handler.base_dir = file_handler.read_config("directory")
-    http_port = file_handler.read_new_config("port") or 8080
-    https_port = file_handler.read_new_config("https-port") or 8443
-    http_enabled = bool(file_handler.read_new_config("http")) or True
+    http_port = file_handler.read_config("port") or 8080
+    https_port = file_handler.read_config("https-port") or 8443
+    http_enabled = bool(file_handler.read_config("http")) or True
     print(http_enabled)
-    https_enabled = bool(file_handler.read_new_config("https")) or False
+    https_enabled = bool(file_handler.read_config("https")) or False
     print(https_enabled)
     server = WebServer(http_port=http_port, https_port=https_port)
     server.start(http_enabled, https_enabled)
